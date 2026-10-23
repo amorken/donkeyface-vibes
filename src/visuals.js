@@ -289,17 +289,18 @@ export class Visualizer {
     const width = Math.min(w * 0.085, h * 0.13);
     const height = width * img.naturalHeight / img.naturalWidth;
     const interlude = songs[state.song].interlude;
-    const amplitude = motionAmplitude(state.motion) * (interlude ? 0.18 : 1);
+    const amplitude = interlude ? Math.min(1, motionAmplitude(state.motion)) : motionAmplitude(state.motion);
     const pulse = interlude ? 0 : Math.exp(-fract(this.phase || 0) * 5) * state.intensity * amplitude;
     const x = w * 0.045, y = h * 0.92 - height;
     // In the original SVG, the symbol ends at y=44.55 and the lettering starts
     // at y=58.57. Split in that empty gap so the wordmark is drawn once, fixed.
     const split = img.naturalHeight * 52 / 84;
     const symbolHeight = height * 52 / 84;
+    const waveHeight = interlude ? symbolHeight * 0.035 : h * 0.0025;
     const strips = 40;
     ctx.save(); ctx.globalAlpha = 0.78;
     for (let i = 0; i < strips; i++) {
-      const offset = Math.sin(i / strips * TAU + this.time * (interlude ? 0.15 : 1.2)) * h * 0.0025 * amplitude - pulse * h * 0.004;
+      const offset = Math.sin(i / strips * TAU + this.time * (interlude ? 0.25 : 1.2)) * waveHeight * amplitude - pulse * h * 0.004;
       ctx.drawImage(img, i * img.naturalWidth / strips, 0, img.naturalWidth / strips, split,
         x + i * width / strips, y + offset, width / strips + 0.35, symbolHeight);
     }

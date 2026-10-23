@@ -178,19 +178,33 @@ async function traceStageDrawing(context) {
   });
 }
 
-test('only the Cognite graphical symbol moves; its lettering stays fixed', async ({ page, context }) => {
-  await traceStageDrawing(context);
-  await openShow(page);
-  const [stage] = await Promise.all([page.waitForEvent('popup'), page.locator('#open-stage').click()]);
-  await expect.poll(() => stage.evaluate(() => window.stageBrandDraws.filter(d => d.sy > 0).length)).toBeGreaterThan(4);
-  const draws = await stage.evaluate(() => window.stageBrandDraws);
-  const text = draws.filter(d => d.sy > 0);
-  const symbol = draws.filter(d => d.sy === 0 && d.sx === 0);
-  expect(new Set(text.map(d => d.y)).size).toBe(1);
-  expect(new Set(symbol.map(d => d.y)).size).toBeGreaterThan(1);
-  expect(symbol.every(d => d.sh <= d.naturalHeight * 52 / 84 + 0.001)).toBe(true);
-  expect(text.every(d => d.sy >= d.naturalHeight * 52 / 84 - 0.001)).toBe(true);
-});
+for (const ambient of [false, true]) {
+  test(`only the Cognite graphical symbol moves; its lettering stays fixed${ambient ? ' during Pause time' : ''}`, async ({ page, context }) => {
+    await traceStageDrawing(context);
+    await openShow(page);
+    const [stage] = await Promise.all([page.waitForEvent('popup'), page.locator('#open-stage').click()]);
+    if (ambient) {
+      await page.getByRole('listitem', { name: 'Play Pause time', exact: true }).click();
+      await expect(stage).toHaveTitle('DevCon 2026 — Pause time');
+      await stage.evaluate(() => { window.stageBrandDraws = []; });
+    }
+    await expect.poll(() => stage.evaluate(() => window.stageBrandDraws.filter(d => d.sy > 0).length)).toBeGreaterThan(4);
+    const draws = await stage.evaluate(() => window.stageBrandDraws);
+    const text = draws.filter(d => d.sy > 0);
+    const symbol = draws.filter(d => d.sy === 0 && d.sx === 0);
+    expect(new Set(text.map(d => d.y)).size).toBe(1);
+    expect(new Set(symbol.map(d => d.y)).size).toBeGreaterThan(1);
+    expect(symbol.every(d => d.sh <= d.naturalHeight * 52 / 84 + 0.001)).toBe(true);
+    expect(text.every(d => d.sy >= d.naturalHeight * 52 / 84 - 0.001)).toBe(true);
+    if (ambient) {
+      const symbolStrips = draws.filter(d => d.sy === 0);
+      const spread = Math.max(...symbolStrips.map(d => d.y)) - Math.min(...symbolStrips.map(d => d.y));
+      const height = await stage.locator('canvas').evaluate(c => c.height);
+      expect(spread).toBeGreaterThan(1); // Visible, rather than a nearly static subpixel ripple.
+      expect(spread).toBeLessThan(height * 0.01); // Still subtle on a large screen.
+    }
+  });
+}
 
 test('motion spans still to active, and Pause time is an ambient scene without band branding', async ({ page, context }) => {
   await traceStageDrawing(context);
