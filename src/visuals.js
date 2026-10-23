@@ -3,6 +3,8 @@ import { ART_KEY } from './store.js';
 import devconArtwork from './assets/devcon-2026.png';
 import cogniteArtwork from './assets/cognite.svg';
 import { motionAmplitude, motionTime } from './motion.js';
+import { agendaView } from './agenda.js';
+import { drawAgenda } from './agenda-visual.js';
 
 const TAU = Math.PI * 2;
 const fract = (n) => n - Math.floor(n);
@@ -236,12 +238,21 @@ export class Visualizer {
         this.transitionStart = timestamp;
       }
       this.previousSong = state.song;
+      if (!songs[state.song].agenda) this.canvas.setAttribute('aria-label', this.preview ? 'Stage visualization preview' : 'Live concert visualization');
     }
     if (state.blackout) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h); return; }
     const song = songs[state.song];
     const colors = palettes[state.palette].colors || song.colors;
     this.phase = (visualNow - state.epoch) / (60000 / state.bpm);
     drawScene(ctx, w, h, this.time, this.phase || 0, colors, state.intensity, state.spotlight && !song.interlude, song.mode, state.motion);
+    if (song.agenda) {
+      const key = `${Math.floor(Date.now() / 1000)}|${state.agendaSelection}|${state.agendaGraceMinutes}`;
+      if (this.agendaKey !== key) {
+        this.agendaKey = key; this.agenda = agendaView(state);
+        this.canvas.setAttribute('aria-label', this.agenda.entry ? `What’s next: ${this.agenda.entry.time}, ${this.agenda.entry.title}. ${this.agenda.entry.items.map(item => [item.track, item.title, item.speaker, item.room].filter(Boolean).join('. ')).join('. ')}` : 'Thanks for a great DevCon. See you next time.');
+      }
+      drawAgenda(ctx, w, h, this.agenda, colors);
+    }
     if (state.logo) this.drawLogo(w, h, state, colors);
     if (state.cognite) this.drawCognite(w, h, state);
     ctx.textAlign = 'right'; ctx.fillStyle = '#f1e9ddaa';
@@ -262,13 +273,14 @@ export class Visualizer {
   drawLogo(w, h, state, colors) {
     const ctx = this.ctx;
     const pulse = songs[state.song].interlude ? 0 : Math.exp(-fract(this.phase || 0) * 5) * state.intensity * motionAmplitude(state.motion);
-    ctx.save(); ctx.translate(w / 2, h / 2); ctx.scale(1 + pulse * 0.014, 1 + pulse * 0.014);
+    const agendaMode = songs[state.song].agenda;
+    ctx.save(); ctx.translate(w / 2, h * (agendaMode ? 0.105 : 0.5)); ctx.scale(1 + pulse * 0.014, 1 + pulse * 0.014);
     const artwork = this.logoImage || this.defaultLogo;
     if (artwork) {
-      const factor = Math.min(w * 0.66 / artwork.width, h * 0.45 / artwork.height);
+      const factor = Math.min(w * (agendaMode ? 0.2 : 0.66) / artwork.width, h * (agendaMode ? 0.12 : 0.45) / artwork.height);
       ctx.drawImage(artwork, -artwork.width * factor / 2, -artwork.height * factor / 2, artwork.width * factor, artwork.height * factor);
     } else {
-      const size = Math.min(w * 0.106, h * 0.18);
+      const size = Math.min(w * (agendaMode ? 0.032 : 0.106), h * (agendaMode ? 0.05 : 0.18));
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = `700 ${size}px "Space Grotesk", sans-serif`;
       ctx.fillStyle = '#faf6ee';
@@ -286,12 +298,13 @@ export class Visualizer {
     const img = this.cogniteImage;
     if (!img.complete || !img.naturalWidth) return;
     const ctx = this.ctx;
-    const width = Math.min(w * 0.085, h * 0.13);
+    const agendaMode = songs[state.song].agenda;
+    const width = Math.min(w * 0.085, h * (agendaMode ? 0.08 : 0.13));
     const height = width * img.naturalHeight / img.naturalWidth;
     const interlude = songs[state.song].interlude;
     const amplitude = interlude ? Math.min(1, motionAmplitude(state.motion)) : motionAmplitude(state.motion);
     const pulse = interlude ? 0 : Math.exp(-fract(this.phase || 0) * 5) * state.intensity * amplitude;
-    const x = w * 0.045, y = h * 0.92 - height;
+    const x = w * 0.045, y = h * (agendaMode ? 0.95 : 0.92) - height;
     // In the original SVG, the symbol ends at y=44.55 and the lettering starts
     // at y=58.57. Split in that empty gap so the wordmark is drawn once, fixed.
     const split = img.naturalHeight * 52 / 84;

@@ -10,6 +10,7 @@ export const songs = [
   { title: 'Run Away', artist: 'Sunstroke Project & Olia Tira', scene: 'Sax machine', mode: 'lasers', bpm: 130, colors: ['#92d4bd', '#b7a8f0', '#f1c671'], tag: 'THE EPIC SAX MOMENT', note: 'A full-room laser fan. Bring the sax forward with spotlight.', mood: 'Eurodance · kinetic', sax: true, icon: 'lasers' },
   { title: 'Shut Up and Dance', artist: 'WALK THE MOON', scene: 'One last dance', mode: 'burst', bpm: 128, colors: ['#ec8fba', '#a9c8ef', '#f4cf82'], tag: 'THE GRAND FINALE', note: 'A color-soaked starburst for one last all-in sing-along.', mood: 'Joyful · explosive', icon: 'burst' },
   { title: 'Pause time', artist: 'Between sets & conversations', scene: 'Quiet hours', mode: 'ambient', bpm: 60, colors: ['#b78c94', '#b6a5c2', '#d0b2a4'], tag: 'TAKE A BREATHER', note: 'Soft drifting ribbons. No beat, no band titles — just a little atmosphere.', mood: 'Mellow · unhurried', interlude: true, icon: 'waves' },
+  { title: 'What’s next', artist: 'DevCon 2026 · Monday 26 October', scene: 'On the agenda', mode: 'ambient', bpm: 60, colors: ['#b78c94', '#b6a5c2', '#d0b2a4'], tag: 'COMING UP AT DEVCON', note: 'The next agenda item, with a little time to settle in. Follow Oslo time or choose a program item manually.', mood: 'Mellow · informed', interlude: true, agenda: true, icon: 'waves' },
 ];
 
 export const palettes = [

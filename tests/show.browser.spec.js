@@ -127,10 +127,13 @@ test('each song renders a different scene; tap tempo, pause, and manual tempo wo
 test('scene library, artwork, and exported show work on a fresh machine', async ({ page, browser }) => {
   await openShow(page);
   await page.getByRole('button', { name: 'Scene library' }).click();
-  await expect(page.locator('.scene-card')).toHaveCount(11);
+  await expect(page.locator('.scene-card')).toHaveCount(12);
   await page.locator('[data-scene="3"]').click();
   await expect(page.locator('#current-title')).toHaveText('Sweet Dreams');
   await page.locator('#motion').fill('75');
+  await page.getByRole('listitem', { name: 'Play What’s next', exact: true }).click();
+  await page.locator('#agenda-grace').fill('7'); await page.locator('#agenda-grace').press('Tab');
+  await page.locator('#agenda-selection').selectOption('session-3-1330');
   await page.getByRole('button', { name: 'Show settings' }).click();
   const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
   await page.locator('#art-upload').setInputFiles({ name: 'custom-logo.png', mimeType: 'image/png', buffer: image });
@@ -149,8 +152,10 @@ test('scene library, artwork, and exported show work on a fresh machine', async 
     const other = await fresh.newPage();
     const errors = []; other.on('pageerror', e => errors.push(e.message));
     await other.goto(exportUrl);
-    await expect(other.locator('#current-title')).toHaveText('Sweet Dreams');
+    await expect(other.locator('#current-title')).toHaveText('What’s next');
     await expect(other.locator('#motion')).toHaveValue('75');
+    await expect(other.locator('#agenda-selection')).toHaveValue('session-3-1330');
+    await expect(other.locator('#agenda-grace')).toHaveValue('7');
     expect(await other.evaluate(() => localStorage.getItem('donkeyface.artwork.v1'))).toContain('data:image/png;base64,');
     expect(errors).toEqual([]);
   } finally { await fresh.close(); exportServer.kill(); }
@@ -259,4 +264,48 @@ test('mobile controls fit the screen and keyboard shortcuts do not steal input f
   await page.getByRole('button', { name: 'Compact desk' }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByRole('listitem', { name: 'Play Shut Up and Dance' })).toBeVisible();
+  await page.getByRole('listitem', { name: 'Play What’s next', exact: true }).click();
+  await expect(page.locator('#agenda-selection')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('agenda follows Oslo time with a grace period, supports manual override, and updates both windows', async ({ page, context }) => {
+  const clock = Date.parse('2026-10-26T08:49:56Z'); // 09:49:56 Oslo, inside the default grace period.
+  await context.addInitScript(now => { window.agendaTestNow = now; Date.now = () => window.agendaTestNow; }, clock);
+  await traceStageDrawing(context);
+  await openShow(page);
+  await page.keyboard.press('w');
+  await expect(page.locator('#current-title')).toHaveText('What’s next');
+  await expect(page.locator('#agenda-current')).toContainText('09:45');
+  const [stage] = await Promise.all([page.waitForEvent('popup'), page.locator('#open-stage').click()]);
+  await expect(stage).toHaveTitle('DevCon 2026 — What’s next');
+  const canvas = stage.locator('canvas');
+  await expect(canvas).toHaveAttribute('aria-label', /09:45.*Takuma Homma.*Kristoffer Rakstad.*Håkon Treider/);
+  await expect(canvas).toHaveAttribute('aria-label', /Project Room 001.*Atrium.*Corner Bar/);
+  await expect.poll(() => stage.evaluate(() => window.stageCaptions.includes('STARTING NOW'))).toBe(true);
+  const setClock = async (iso) => {
+    const time = Date.parse(iso);
+    await Promise.all([page.evaluate(t => { window.agendaTestNow = t; }, time), stage.evaluate(t => { window.agendaTestNow = t; }, time)]);
+  };
+  await setClock('2026-10-26T08:50:00Z');
+  await expect(canvas).toHaveAttribute('aria-label', /10:15.*Jan Eivind Danielsen/);
+  await expect(page.locator('#agenda-current')).toContainText('10:15');
+  await page.locator('#agenda-grace').fill('10'); await page.locator('#agenda-grace').press('Tab');
+  await expect(canvas).toHaveAttribute('aria-label', /09:45.*Takuma Homma/);
+  await page.locator('#agenda-selection').selectOption('session-3-1330');
+  await expect(page.locator('#agenda-mode')).toHaveText('MANUAL');
+  await expect(page.locator('#agenda-grace')).toBeDisabled();
+  await expect(canvas).toHaveAttribute('aria-label', /13:30.*Lars Arne Skår.*Niek Beckers.*Trygve Utstumo/);
+  await setClock('2026-10-27T06:00:00Z');
+  await expect(canvas).toHaveAttribute('aria-label', /13:30/);
+  await page.reload();
+  await expect(page.locator('#agenda-selection')).toHaveValue('session-3-1330');
+  await page.locator('#agenda-selection').selectOption('auto');
+  await setClock('2026-10-26T08:55:00Z');
+  await expect(canvas).toHaveAttribute('aria-label', /10:15/);
+  await setClock('2026-10-27T06:00:00Z');
+  await expect(canvas).toHaveAttribute('aria-label', /Thanks for a great DevCon/);
+  await expect(page.locator('#agenda-current')).toContainText('finished');
+  await page.locator('#agenda-selection').selectOption('closing');
+  await expect(canvas).toHaveAttribute('aria-label', /15:00.*Closing keynote/);
 });

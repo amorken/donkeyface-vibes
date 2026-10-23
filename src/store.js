@@ -1,4 +1,5 @@
 import { songs } from './songs.js';
+import { agenda } from './agenda.js';
 
 export const STATE_KEY = 'donkeyface.show.v1';
 export const ART_KEY = 'donkeyface.artwork.v1';
@@ -6,6 +7,7 @@ export const defaults = {
   song: 0, bpm: 124, epoch: Date.now(), intensity: 0.65, brightness: 0.9, motion: 0.5, motionOffset: 0,
   palette: 0, blackout: false, spotlight: false, logo: true, cognite: true, titles: false,
   paused: false, motionStart: Date.now(), frozenAt: Date.now(), tapCount: 0, tempoSource: 'Song preset', artVersion: 0,
+  agendaSelection: 'auto', agendaGraceMinutes: 5,
 };
 
 export function sanitizeState(raw = {}) {
@@ -13,11 +15,13 @@ export function sanitizeState(raw = {}) {
   for (const key of ['blackout', 'spotlight', 'logo', 'cognite', 'titles', 'paused']) {
     if (typeof raw[key] === 'boolean') result[key] = raw[key];
   }
-  for (const [key, min, max] of [['song', 0, songs.length - 1], ['bpm', 40, 220], ['intensity', 0, 1], ['brightness', 0, 1], ['motion', 0, 1], ['motionOffset', 0, Number.MAX_SAFE_INTEGER], ['palette', 0, 4], ['tapCount', 0, 8], ['epoch', 0, Number.MAX_SAFE_INTEGER], ['motionStart', 0, Number.MAX_SAFE_INTEGER], ['frozenAt', 0, Number.MAX_SAFE_INTEGER], ['artVersion', 0, Number.MAX_SAFE_INTEGER]]) {
+  for (const [key, min, max] of [['song', 0, songs.length - 1], ['bpm', 40, 220], ['intensity', 0, 1], ['brightness', 0, 1], ['motion', 0, 1], ['motionOffset', 0, Number.MAX_SAFE_INTEGER], ['agendaGraceMinutes', 0, 15], ['palette', 0, 4], ['tapCount', 0, 8], ['epoch', 0, Number.MAX_SAFE_INTEGER], ['motionStart', 0, Number.MAX_SAFE_INTEGER], ['frozenAt', 0, Number.MAX_SAFE_INTEGER], ['artVersion', 0, Number.MAX_SAFE_INTEGER]]) {
     if (typeof raw[key] === 'number' && Number.isFinite(raw[key])) result[key] = Math.max(min, Math.min(max, raw[key]));
   }
   result.song = Math.floor(result.song);
   result.palette = Math.floor(result.palette);
+  result.agendaGraceMinutes = Math.round(result.agendaGraceMinutes);
+  if (raw.agendaSelection === 'auto' || agenda.some(item => item.id === raw.agendaSelection)) result.agendaSelection = raw.agendaSelection;
   if (['Song preset', 'Tap synced', 'Manual tempo'].includes(raw.tempoSource)) result.tempoSource = raw.tempoSource;
   return result;
 }

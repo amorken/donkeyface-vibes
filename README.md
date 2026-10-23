@@ -1,6 +1,6 @@
 # Donkey Face — Live visual desk
 
-A browser-based concert visuals app for Cognite’s house band at DevCon 2026. The stage window shows the visuals; the control desk runs on your own screen. Ten song scenes and a mellow **Pause time** scene follow the show, with tap tempo, gradual transitions, a sax spotlight, and a moving Cognite symbol above fixed lettering.
+A browser-based concert visuals app for Cognite’s house band at DevCon 2026. The stage window shows the visuals; the control desk runs on your own screen. Ten song scenes, a mellow **Pause time** scene, and a **What’s next** agenda scene follow the show, with tap tempo, gradual transitions, a sax spotlight, and a moving Cognite symbol above fixed lettering.
 
 ## Run the portable app
 
@@ -17,6 +17,16 @@ The release embeds the visual code, fonts, DevCon artwork, and Cognite SVG. All 
 **Motion aggressiveness** controls the amplitude and speed of the scene, beat pulses, and Cognite symbol. At 0% the scene stays still; 50% is the standard look; higher values add wider sweeps, stronger waves, and more active movement. Adjustments preserve the animation’s current time, and the slider is available in compact mode too. Beat intensity independently controls how strongly the visuals respond to each beat.
 
 Select **Pause time** at the end of the setlist, or press **A**, for quiet moments between sets or conversations. It uses restrained, slowly drifting ribbons with DevCon and Cognite branding, suppresses Donkey Face captions and song titles, and ignores tap tempo and sax spotlight. Its motion remains mellow even with a high motion setting. The Cognite symbol gently waves, while “Cognite” and “AI for Industry” remain stationary in every scene. Use the song buttons, arrows, or number keys to return to the concert.
+
+## What’s next on the agenda
+
+Select **What’s next** in the setlist, or press **W**, for the ambient background with the upcoming DevCon program on top. It includes the 17 time blocks from the supplied `DevCon26_Agenda_onepager.pdf`: **Monday 26 October 2026, MESH Youngstorget**. Parallel tracks appear together with their talk titles, speakers, and rooms; blank track slots in the PDF are omitted. The Cognite symbol keeps its subtle motion and the band captions remain hidden.
+
+Automatic selection follows **Europe/Oslo** time, regardless of the concert machine’s time zone. By default, a scheduled item remains visible until **five minutes after its start**, then the screen advances to the next time block. A just-started item is marked “Starting now.” The **Keep after start** control allows a grace period from 0 to 15 minutes.
+
+In the control desk’s **On the agenda** panel, choose a specific item under **Program shown** to hold it manually if the event runs early or late. It stays selected until you choose **Automatic · follow the clock**, including across reloads or switching scenes. The selection and grace period sync to the stage and are included in exported show files. These controls are also available in compact mode.
+
+Before the event day, Automatic shows the opening coffee slot. After the last item starts plus its grace period, it keeps the closing keynote marked “Final session” for the remainder of the event day; the PDF provides no closing end time. On later dates it shows a thank-you screen. Manual selection works on any date for rehearsals or schedule changes. The display uses the machine’s clock and needs no internet connection.
 
 ## Artwork and saved shows
 
@@ -52,6 +62,7 @@ The server listens on the local machine by default and exposes only the chosen H
 | Left / Right | Previous / next song |
 | 1–9, 0 | Jump to songs 1–10 |
 | A | Pause time / mellow ambient scene |
+| W | What’s next / timed agenda scene |
 | B | Blackout / restore stage |
 | S | Sax spotlight |
 | P | Pause / resume motion |
@@ -70,7 +81,7 @@ npm run dev
 ```
 
 ```sh
-npm test                 # Tempo averaging and persisted-state validation
+npm test                 # Tempo, motion, agenda timing, and persisted-state validation
 npm run build            # Standard static build in dist/
 npm run package          # Rebuild release/Donkey-Face.html; commit it with source changes
 npm run test:browser     # Starts the Node server and tests the actual release over HTTP
@@ -95,5 +106,6 @@ The cloud’s managed Chromium policy blocks `file://` navigation. The direct lo
 | Run Away — Sunstroke Project & Olia Tira | Sax machine / laser fans |
 | Shut Up and Dance — WALK THE MOON | One last dance / color starburst |
 | Pause time — Between sets & conversations | Quiet hours / slow ambient ribbons, no band captions |
+| What’s next — DevCon program | On the agenda / timed schedule with manual override |
 
 The locally bundled Space Grotesk font uses the SIL Open Font License, included in `public/fonts/SpaceGrotesk-LICENSE.txt` and in the portable HTML.

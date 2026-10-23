@@ -9,7 +9,7 @@
     "package": "vite build && node scripts/package.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "serve": "node scripts/serve.mjs",
-    "test": "node --test tests/tempo.test.js",
+    "test": "node --test tests/*.test.js",
     "test:browser": "playwright test"
   },
   "engines": { "node": ">=22.12.0" },
