@@ -8,6 +8,7 @@
     "build": "vite build",
     "package": "vite build && node scripts/package.mjs",
     "preview": "vite preview --host 0.0.0.0",
+    "serve": "node scripts/serve.mjs",
     "test": "node --test tests/tempo.test.js",
     "test:browser": "playwright test"
   },

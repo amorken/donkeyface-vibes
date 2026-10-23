@@ -22,6 +22,24 @@ The default DevCon image is a cleaned, adapted version of the supplied chat refe
 
 Chrome and Edge allow a normal local HTML file to open its stage window and communicate through `window.opener`. Managed corporate browsers can restrict local files or pop-ups; check the concert machine before showtime. Browser settings should allow fullscreen and keep the machine awake during the show.
 
+## Serve the portable app over HTTP
+
+If Node.js is installed, the included server provides an alternative to opening the HTML directly. From the repository directory, run:
+
+```sh
+npm run serve
+```
+
+Open `http://127.0.0.1:4173` in Chrome or Edge, then use **Open stage window** as usual. The server serves the actual portable HTML, including the stage window’s query string. It uses only built-in Node modules, so `npm install` is not required to serve the committed release.
+
+You can also serve an exported show file or choose another port:
+
+```sh
+node scripts/serve.mjs --file /path/to/Donkey-Face-Show.html --port 8080
+```
+
+The server listens on the local machine by default and exposes only the chosen HTML file. Press Ctrl+C to stop it. You can copy `scripts/serve.mjs` alongside the HTML and use `--file` to point at it; development dependencies are not needed.
+
 ## Keyboard controls
 
 | Key | Action |
@@ -50,12 +68,12 @@ npm run dev
 npm test                 # Tempo averaging and persisted-state validation
 npm run build            # Standard static build in dist/
 npm run package          # Rebuild release/Donkey-Face.html; commit it with source changes
-npm run test:browser     # Chromium functional tests against exact release HTML bytes
+npm run test:browser     # Starts the Node server and tests the actual release over HTTP
 ```
 
-Browser tests use `/usr/bin/chromium` by default. Set `CHROMIUM_PATH` to your Chromium executable elsewhere. The tests exercise the release without an HTTP server, fulfilling its document from memory and rejecting other network requests. They cover two-window synchronization with BroadcastChannel and storage events disabled, all ten scenes, tap tempo, motion pause, blackout, custom artwork, export to a clean browser context, compact layout, and mobile overflow.
+Browser tests use `/usr/bin/chromium` by default. Set `CHROMIUM_PATH` to your Chromium executable elsewhere. Playwright starts and stops the included Node HTTP server automatically. Tests reject external network destinations and cover the exact served release bytes, HTTP behavior, two-window synchronization with normal browser messaging and with BroadcastChannel/storage events disabled, all ten scenes, tap tempo, motion pause, blackout, custom artwork, export served to a clean browser context, compact layout, and mobile overflow.
 
-The cloud’s managed Chromium policy blocks `file://` navigation. The direct local-file check is explicitly skipped on that policy error; the remaining checks use the exact self-contained release HTML through an in-memory route. Direct opening on the concert machine remains a pre-show check.
+The cloud’s managed Chromium policy blocks `file://` navigation. The direct local-file check is explicitly skipped on that policy error; all other browser checks use real HTTP requests to the Node server. Direct opening on the concert machine remains a pre-show check; serving over HTTP is a tested alternative.
 
 ## Setlist
 

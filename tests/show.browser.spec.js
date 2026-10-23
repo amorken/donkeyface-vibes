@@ -2,9 +2,10 @@ import { test, expect } from '@playwright/test';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 
 const release = pathToFileURL(resolve('release/Donkey-Face.html')).href;
-const showUrl = 'http://donkeyface.test/Donkey-Face.html';
+const showUrl = 'http://127.0.0.1:4173/Donkey-Face.html';
 const state = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('donkeyface.show.v1')));
 async function openShow(page) {
   await page.goto(showUrl);
@@ -12,12 +13,11 @@ async function openShow(page) {
 }
 
 test.beforeEach(async ({ context }) => {
-  // The cloud-managed browser blocks file://. Fulfill the exact release bytes as a
-  // document, without a server; all other network requests must fail.
-  const html = await readFile(resolve('release/Donkey-Face.html'), 'utf8');
+  // Load the actual release through the Node HTTP server. Reject every other
+  // network destination so embedded assets cannot silently depend on a CDN.
   await context.route('**/*', route => {
     if (route.request().url().startsWith('file:')) return route.continue();
-    if (route.request().url().startsWith(showUrl)) return route.fulfill({ body: html, contentType: 'text/html' });
+    if (new URL(route.request().url()).origin === new URL(showUrl).origin) return route.continue();
     return route.abort();
   });
 });
@@ -25,13 +25,13 @@ test.beforeEach(async ({ context }) => {
 test('direct local-file startup where permitted by browser policy', async ({ page }) => {
   try { await page.goto(release); }
   catch (error) {
-    if (String(error).includes('ERR_BLOCKED_BY_ADMINISTRATOR')) test.skip(true, 'Cloud browser policy blocks file://; exact release bytes are tested in the other cases.');
+    if (String(error).includes('ERR_BLOCKED_BY_ADMINISTRATOR')) test.skip(true, 'Cloud browser policy blocks file://; the release is tested over HTTP in the other cases.');
     throw error;
   }
   await expect(page.locator('#preview')).toBeVisible();
 });
 
-test('self-contained file loads offline, opens its stage, and syncs controls in both directions', async ({ page, context }) => {
+test('release loads over HTTP without external assets and syncs controls through the opener', async ({ page, context }) => {
   const errors = [], network = [];
   context.on('page', p => p.on('pageerror', e => errors.push(e.message)));
   page.on('pageerror', e => errors.push(e.message));
@@ -57,6 +57,38 @@ test('self-contained file loads offline, opens its stage, and syncs controls in 
   await stage.keyboard.press('b');
   await expect(page.getByRole('button', { name: 'Blackout', exact: true })).toHaveAttribute('aria-pressed', 'false');
   expect(network).toEqual([]); expect(errors).toEqual([]);
+});
+
+test('server sends the exact release bytes, supports stage queries and HEAD, and limits file access', async ({ request }) => {
+  const url = 'http://127.0.0.1:4173';
+  const html = await readFile(resolve('release/Donkey-Face.html'));
+  const root = await request.get(url);
+  expect(root.status()).toBe(200);
+  expect(await root.body()).toEqual(html);
+  expect(root.headers()['content-type']).toBe('text/html; charset=utf-8');
+  const stage = await request.get(`${showUrl}?stage=1`);
+  expect(await stage.body()).toEqual(html);
+  const head = await request.head(showUrl);
+  expect(head.status()).toBe(200);
+  expect(head.headers()['content-length']).toBe(String(html.length));
+  expect((await head.body()).length).toBe(0);
+  expect((await request.get(`${url}/package.json`)).status()).toBe(404);
+  expect((await request.get(`${url}/%2e%2e%2fpackage.json`)).status()).toBe(404);
+  expect((await request.post(showUrl)).status()).toBe(405);
+});
+
+test('normal HTTP window synchronization works with browser messaging enabled', async ({ page }) => {
+  await openShow(page);
+  const [stage] = await Promise.all([page.waitForEvent('popup'), page.locator('#open-stage').click()]);
+  await expect(page.locator('#stage-status')).toHaveText('Stage connected');
+  await page.getByRole('listitem', { name: 'Play Sweet Dreams', exact: true }).click();
+  await expect.poll(async () => (await state(stage))?.song).toBe(3);
+  await page.locator('#blackout').click();
+  await expect.poll(async () => stage.locator('canvas').evaluate(c => [...c.getContext('2d').getImageData(c.width / 2, c.height / 2, 1, 1).data])).toEqual([0, 0, 0, 255]);
+  await stage.keyboard.press('ArrowRight');
+  await expect(page.locator('#current-title')).toHaveText('Viva La Vida');
+  await stage.close();
+  await expect(page.locator('#stage-status')).toHaveText('Stage not connected', { timeout: 6000 });
 });
 
 test('each song renders a different scene; tap tempo, pause, and manual tempo work', async ({ page }) => {
@@ -106,17 +138,20 @@ test('scene library, artwork, and exported show work on a fresh machine', async 
   const path = resolve('test-results/Exported-show.html'); await download.saveAs(path);
   const exported = await readFile(path, 'utf8');
   expect(exported).toContain('donkeyface-show-data');
+  // Serve the downloaded export as a real file on a separate local server too.
+  const exportUrl = 'http://127.0.0.1:4174/';
+  const exportServer = spawn(process.execPath, ['scripts/serve.mjs', '--port', '4174', '--file', path], { stdio: 'ignore' });
   const fresh = await browser.newContext();
-  await fresh.route('**/*', route => {
-    if (route.request().url().startsWith(showUrl)) return route.fulfill({ body: exported, contentType: 'text/html' });
-    return route.abort();
-  });
-  const other = await fresh.newPage();
-  const errors = []; other.on('pageerror', e => errors.push(e.message));
-  await other.goto(showUrl);
-  await expect(other.locator('#current-title')).toHaveText('Sweet Dreams');
-  expect(await other.evaluate(() => localStorage.getItem('donkeyface.artwork.v1'))).toContain('data:image/png;base64,');
-  expect(errors).toEqual([]); await fresh.close();
+  try {
+    await expect.poll(async () => { try { return (await fetch(exportUrl)).status; } catch { return 0; } }).toBe(200);
+    await fresh.route('**/*', route => new URL(route.request().url()).origin === new URL(exportUrl).origin ? route.continue() : route.abort());
+    const other = await fresh.newPage();
+    const errors = []; other.on('pageerror', e => errors.push(e.message));
+    await other.goto(exportUrl);
+    await expect(other.locator('#current-title')).toHaveText('Sweet Dreams');
+    expect(await other.evaluate(() => localStorage.getItem('donkeyface.artwork.v1'))).toContain('data:image/png;base64,');
+    expect(errors).toEqual([]);
+  } finally { await fresh.close(); exportServer.kill(); }
 });
 
 test('mobile controls fit the screen and keyboard shortcuts do not steal input focus', async ({ page }) => {
