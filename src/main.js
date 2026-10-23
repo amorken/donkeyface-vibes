@@ -98,7 +98,7 @@ if (isStage) {
   let hintTimer;
   const revealHint = () => {
     document.body.classList.add('show-hint');
-    clearTimeout(hintTimer); hintTimer = setTimeout(() => document.body.classList.remove('show-hint'), 2800);
+    clearTimeout(hintTimer); hintTimer = setTimeout(() => document.body.classList.remove('show-hint'), 1000);
   };
   document.addEventListener('mousemove', revealHint); revealHint();
   document.addEventListener('keydown', (event) => { if (event.code === 'KeyF') fullscreen(); });
