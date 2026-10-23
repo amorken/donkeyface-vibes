@@ -2,6 +2,7 @@ import './style.css';
 import { songs, palettes } from './songs.js';
 import { createStore, ART_KEY, STATE_KEY, sanitizeState } from './store.js';
 import { TapTempo } from './tempo.js';
+import { changeMotion } from './motion.js';
 import { Visualizer, drawScene } from './visuals.js';
 import { icon } from './icons.js';
 import devconArtwork from './assets/devcon-2026.png';
@@ -35,6 +36,7 @@ function toast(message) {
 }
 
 function tap() {
+  if (songs[store.get().song].interlude) return;
   const now = Date.now();
   const result = tapper.tap(now);
   if (!result.accepted) return;
@@ -51,6 +53,7 @@ function selectSong(index) {
 
 function toggle(key) {
   const state = store.get();
+  if (key === 'spotlight' && songs[state.song].interlude) return;
   if (key === 'paused') {
     const now = Date.now();
     store.set(state.paused ? { paused: false, motionStart: state.motionStart + now - state.frozenAt } : { paused: true, frozenAt: now });
@@ -70,9 +73,15 @@ if (isStage) {
   document.title = 'Donkey Face — Stage';
   document.body.className = 'stage-body';
   app.innerHTML = `<main class="stage-screen"><canvas id="stage-canvas" aria-label="Live concert visualization"></canvas>
-    <div class="stage-hint"><span>DONKEY FACE <span class="stage-hint-divider">/</span> STAGE OUTPUT</span><button id="stage-fullscreen">${icon('expand')} Enter fullscreen <kbd>F</kbd></button><span>Move this window to the stage screen</span></div></main>`;
+    <div class="stage-hint"><span id="stage-output-name"></span><button id="stage-fullscreen">${icon('expand')} Enter fullscreen <kbd>F</kbd></button><span>Move this window to the stage screen</span></div></main>`;
   visualizer = new Visualizer($('#stage-canvas'), store.get);
   connectArtwork();
+  const updateStageLabel = (state) => {
+    const ambient = songs[state.song].interlude;
+    $('#stage-output-name').textContent = ambient ? 'DEVCON 2026 / AMBIENT OUTPUT' : 'DONKEY FACE / STAGE OUTPUT';
+    document.title = ambient ? 'DevCon 2026 — Pause time' : 'Donkey Face — Stage';
+  };
+  store.subscribe(updateStageLabel); updateStageLabel(store.get());
   const heartbeat = () => {
     const payload = { type: 'heartbeat', at: Date.now(), fullscreen: !!document.fullscreenElement };
     store.message(payload);
@@ -97,7 +106,7 @@ if (isStage) {
   app.innerHTML = `
     <header class="app-header">
       <a class="brand" href="./" aria-label="Donkey Face home"><span class="brand-mark">d<span>f</span><i></i></span><span class="brand-name">donkey face<span>THE LIVE VISUAL DESK</span></span></a>
-      <nav class="main-nav" aria-label="Main navigation"><button class="nav-link active" id="live-tab">${icon('monitor')} Live desk</button><button class="nav-link" id="library-tab">${icon('layers')} Scene library <span class="nav-count">10</span></button></nav>
+      <nav class="main-nav" aria-label="Main navigation"><button class="nav-link active" id="live-tab">${icon('monitor')} Live desk</button><button class="nav-link" id="library-tab">${icon('layers')} Scene library <span class="nav-count">${songs.length}</span></button></nav>
       <div class="header-right"><img class="event-logo" src="${devconArtwork}" alt="DevCon 2026"/><span class="header-divider"></span><button class="icon-button" id="settings" aria-label="Show settings">${icon('settings')}</button></div>
     </header>
     <main class="desk">
@@ -106,8 +115,8 @@ if (isStage) {
       </section>
       <div class="workspace">
         <aside class="setlist-panel panel" aria-label="Concert setlist">
-          <div class="panel-heading"><h2>Tonight’s setlist</h2><span class="count-pill">10 SONGS</span></div>
-          <div class="setlist" role="list">${songs.map((song, i) => `<button role="listitem" class="song-row ${i === 0 ? 'selected' : ''}" data-song="${i}" aria-label="Play ${song.title}"><span class="song-index">${String(i + 1).padStart(2, '0')}</span><span class="song-copy"><span class="song-title">${song.title}</span><span class="song-artist">${song.artist}</span></span><span class="song-indicator">${i === 0 ? '<i></i><i></i><i></i>' : song.sax ? icon('spark') : ''}</span></button>`).join('')}</div>
+          <div class="panel-heading"><h2>Tonight’s setlist</h2><span class="count-pill">10 SONGS + PAUSE</span></div>
+          <div class="setlist" role="list">${songs.map((song, i) => `<button role="listitem" class="song-row ${song.interlude ? 'interlude-row' : ''} ${i === 0 ? 'selected' : ''}" data-song="${i}" aria-label="Play ${song.title}"><span class="song-index">${song.interlude ? icon('moon') : String(i + 1).padStart(2, '0')}</span><span class="song-copy"><span class="song-title">${song.title}</span><span class="song-artist">${song.artist}</span></span><span class="song-indicator">${i === 0 ? '<i></i><i></i><i></i>' : song.sax ? icon('spark') : ''}</span></button>`).join('')}</div>
           <div class="setlist-footer">${icon('music')} A little louder. A little weirder.</div>
         </aside>
         <section class="visual-column" aria-label="Live visualization">
@@ -122,7 +131,7 @@ if (isStage) {
         </section>
         <aside class="controls-column" aria-label="Live controls">
           <section class="tempo-panel panel"><div class="panel-heading"><h2>Keep the beat</h2>${icon('music')}</div><div class="tempo-source"><span class="status-dot"></span><span id="tempo-source">Song preset</span></div><div class="bpm-display"><button id="bpm-minus" class="bpm-nudge" aria-label="Decrease BPM">−</button><div><input id="bpm-input" type="number" min="40" max="220" value="124" aria-label="Tempo in beats per minute"/><span>BPM</span></div><button id="bpm-plus" class="bpm-nudge" aria-label="Increase BPM">+</button></div><div class="beat-dots" aria-label="Beat indicator"><i></i><i></i><i></i><i></i></div><button class="tap-pad" id="tap-pad"><span>${icon('bolt')} Tap to the beat</span><span>or press <kbd>SPACE</kbd></span></button><p class="tap-help" id="tap-help">Tap a few times. We’ll find the rhythm.</p></section>
-          <section class="energy-panel panel"><div class="panel-heading"><h2>Set the energy</h2>${icon('sun')}</div><div class="slider-label"><label for="intensity">Intensity</label><output id="intensity-value">65%</output></div><input class="range" id="intensity" type="range" min="0" max="100" value="65"/><div class="range-hints"><span>Easy does it</span><span>All in</span></div><div class="slider-label brightness-label"><label for="brightness">Brightness</label><output id="brightness-value">90%</output></div><input class="range" id="brightness" type="range" min="0" max="100" value="90"/><div class="control-divider"></div><label class="switch-row"><span>${icon('eye')} DevCon artwork</span><input class="switch-input" type="checkbox" id="logo-toggle" checked/><span class="switch"></span></label><label class="switch-row"><span>${icon('spark')} Cognite wave</span><input class="switch-input" type="checkbox" id="cognite-toggle" checked/><span class="switch"></span></label><label class="switch-row"><span>${icon('music')} Song titles on stage</span><input class="switch-input" type="checkbox" id="titles-toggle"/><span class="switch"></span></label></section>
+          <section class="energy-panel panel"><div class="panel-heading"><h2>Set the energy</h2>${icon('sun')}</div><div class="motion-control"><div class="slider-label"><label for="motion">Motion aggressiveness</label><output id="motion-value">50%</output></div><input class="range" id="motion" type="range" min="0" max="100" value="50"/><div class="range-hints"><span>Still</span><span>Unleashed</span></div></div><div class="slider-label"><label for="intensity">Beat intensity</label><output id="intensity-value">65%</output></div><input class="range" id="intensity" type="range" min="0" max="100" value="65"/><div class="range-hints"><span>Easy does it</span><span>All in</span></div><div class="slider-label brightness-label"><label for="brightness">Brightness</label><output id="brightness-value">90%</output></div><input class="range" id="brightness" type="range" min="0" max="100" value="90"/><div class="control-divider"></div><label class="switch-row"><span>${icon('eye')} DevCon artwork</span><input class="switch-input" type="checkbox" id="logo-toggle" checked/><span class="switch"></span></label><label class="switch-row"><span>${icon('spark')} Cognite wave</span><input class="switch-input" type="checkbox" id="cognite-toggle" checked/><span class="switch"></span></label><label class="switch-row"><span>${icon('music')} Song titles on stage</span><input class="switch-input" type="checkbox" id="titles-toggle"/><span class="switch"></span></label></section>
           <button class="spotlight-button" id="spotlight" aria-pressed="false"><span class="spotlight-icon">${icon('spark')}</span><span>Sax spotlight<span>A little extra main character energy</span></span><kbd>S</kbd></button>
           <div class="safety-controls"><button id="pause" aria-pressed="false">${icon('pause')} <span>Pause motion</span></button><button id="blackout" aria-pressed="false">${icon('moon')} <span>Blackout</span><kbd>B</kbd></button></div>
         </aside>
@@ -165,6 +174,7 @@ if (isStage) {
   $('#logo-toggle').onchange = (e) => store.set({ logo: e.target.checked });
   $('#cognite-toggle').onchange = (e) => store.set({ cognite: e.target.checked });
   $('#titles-toggle').onchange = (e) => store.set({ titles: e.target.checked });
+  $('#motion').oninput = (e) => store.set(changeMotion(store.get(), Number(e.target.value) / 100));
   for (const key of ['intensity', 'brightness']) $(`#${key}`).oninput = (e) => store.set({ [key]: Number(e.target.value) / 100 });
   $$('.palette-option').forEach((button) => button.onclick = () => store.set({ palette: Number(button.dataset.palette) }));
   function manualTempo(bpm) {
@@ -177,13 +187,13 @@ if (isStage) {
 
   $('#library-tab').onclick = () => {
     $('#library-tab').classList.add('active');
-    showModal('A different world for every song.', `<p class="modal-intro">Ten looks, made for tonight’s set. Choose a scene to take it live.</p><div class="scene-grid">${songs.map((s, i) => `<button class="scene-card" data-scene="${i}"><canvas width="360" height="180" data-scene-canvas="${i}"></canvas><span>${s.scene}${i === store.get().song ? '<b>LIVE</b>' : ''}</span><small>${String(i + 1).padStart(2, '0')} / ${s.title}</small></button>`).join('')}</div>`);
+    showModal('A different world for every song.', `<p class="modal-intro">Ten songs and a mellow pause scene, made for tonight’s show. Choose a scene to take it live.</p><div class="scene-grid">${songs.map((s, i) => `<button class="scene-card" data-scene="${i}"><canvas width="360" height="180" data-scene-canvas="${i}"></canvas><span>${s.scene}${i === store.get().song ? '<b>LIVE</b>' : ''}</span><small>${String(i + 1).padStart(2, '0')} / ${s.title}</small></button>`).join('')}</div>`);
     $$('[data-scene-canvas]').forEach((c) => { const s = songs[Number(c.dataset.sceneCanvas)]; drawScene(c.getContext('2d'), 360, 180, 4, 0.2, s.colors, 0.7, false, s.mode); });
     $$('[data-scene]').forEach((b) => b.onclick = () => { selectSong(Number(b.dataset.scene)); helpDialog.close(); });
   };
   $('#live-tab').onclick = () => helpDialog.close();
 
-  const shortcuts = () => showModal('Stay in the moment.', `<p class="modal-intro">Your hands know the show. These work in either window.</p><div class="shortcut-list">${[['Space', 'Tap the tempo'], ['← / →', 'Previous / next song'], ['B', 'Blackout / restore stage'], ['S', 'Toggle sax spotlight'], ['P', 'Pause / resume motion'], ['1 – 9, 0', 'Jump to song 1–10'], ['F', 'Fullscreen (stage window)'], ['?', 'Show these shortcuts']].map(([key, meaning]) => `<div><span>${meaning}</span><kbd>${key}</kbd></div>`).join('')}</div><p class="modal-footnote">Shortcuts pause while you’re typing or adjusting a control. Blackout keeps the beat running, so you can come back right on time.</p>`);
+  const shortcuts = () => showModal('Stay in the moment.', `<p class="modal-intro">Your hands know the show. These work in either window.</p><div class="shortcut-list">${[['Space', 'Tap the tempo'], ['← / →', 'Previous / next song'], ['B', 'Blackout / restore stage'], ['S', 'Toggle sax spotlight'], ['P', 'Pause / resume motion'], ['1 – 9, 0', 'Jump to song 1–10'], ['A', 'Pause time / ambient scene'], ['F', 'Fullscreen (stage window)'], ['?', 'Show these shortcuts']].map(([key, meaning]) => `<div><span>${meaning}</span><kbd>${key}</kbd></div>`).join('')}</div><p class="modal-footnote">Shortcuts pause while you’re typing or adjusting a control. Blackout keeps the beat running, so you can come back right on time.</p>`);
   $('#shortcuts').onclick = shortcuts;
 
   $('#settings').onclick = () => {
@@ -236,7 +246,7 @@ if (isStage) {
         row.classList.toggle('selected', i === state.song); row.setAttribute('aria-current', i === state.song ? 'true' : 'false');
         row.querySelector('.song-indicator').innerHTML = i === state.song ? '<i></i><i></i><i></i>' : songs[i].sax ? icon('spark') : '';
       });
-      $('#current-title').textContent = song.title; $('#current-artist').innerHTML = `${song.artist} <span>·</span> <span id="song-position">${String(state.song + 1).padStart(2, '0')} / 10</span>`;
+      $('#current-title').textContent = song.title; $('#current-artist').innerHTML = `${song.artist} <span>·</span> <span id="song-position">${song.interlude ? 'INTERLUDE' : String(state.song + 1).padStart(2, '0') + ' / 10'}</span>`;
       $('#song-tag').textContent = song.tag; $('#scene-name').textContent = song.scene; $('#scene-mood').textContent = song.mood;
       $('#scene-note').textContent = song.note; $('#preview-tag').textContent = song.scene.toUpperCase();
       $('#prev-song').disabled = state.song === 0; $('#next-song').disabled = state.song === songs.length - 1;
@@ -244,9 +254,10 @@ if (isStage) {
       document.documentElement.style.setProperty('--scene-color', song.colors[0]);
       $('.palette-option').style.setProperty('--swatch', song.colors[0]);
     }
-    $('#bpm-input').value = state.bpm; $('#tempo-source').textContent = state.tempoSource;
-    $('#tap-help').textContent = state.tapCount ? `${state.tapCount} ${state.tapCount === 1 ? 'tap' : 'taps'} ${state.tapCount === 1 ? '— keep going…' : 'averaged · keep tapping to refine'}` : 'Tap a few times. We’ll find the rhythm.';
-    for (const key of ['intensity', 'brightness']) { const value = Math.round(state[key] * 100); $(`#${key}`).value = value; $(`#${key}`).style.setProperty('--range-fill', `${value}%`); $(`#${key}-value`).textContent = `${value}%`; }
+    $('#bpm-input').value = state.bpm; $('#tempo-source').textContent = song.interlude ? 'Ambient · no beat' : state.tempoSource;
+    for (const id of ['bpm-input', 'bpm-minus', 'bpm-plus', 'tap-pad', 'spotlight', 'titles-toggle']) $(`#${id}`).disabled = !!song.interlude;
+    $('#tap-help').textContent = song.interlude ? 'Slow drifting visuals. No tapping needed.' : state.tapCount ? `${state.tapCount} ${state.tapCount === 1 ? 'tap' : 'taps'} ${state.tapCount === 1 ? '— keep going…' : 'averaged · keep tapping to refine'}` : 'Tap a few times. We’ll find the rhythm.';
+    for (const key of ['intensity', 'brightness', 'motion']) { const value = Math.round(state[key] * 100); $(`#${key}`).value = value; $(`#${key}`).style.setProperty('--range-fill', `${value}%`); $(`#${key}-value`).textContent = `${value}%`; }
     $('#logo-toggle').checked = state.logo; $('#cognite-toggle').checked = state.cognite; $('#titles-toggle').checked = state.titles;
     $$('.palette-option').forEach((b, i) => { b.classList.toggle('selected', i === state.palette); b.setAttribute('aria-pressed', String(i === state.palette)); });
     $('#palette-name').textContent = palettes[state.palette].name;
@@ -255,7 +266,7 @@ if (isStage) {
     $('#blackout').innerHTML = `${icon(state.blackout ? 'eye' : 'moon')} <span>${state.blackout ? 'Restore stage' : 'Blackout'}</span><kbd>B</kbd>`;
     $('#blackout').setAttribute('aria-label', state.blackout ? 'Restore stage' : 'Blackout');
     $('.blackout-label').hidden = !state.blackout; $('.paused-label').hidden = !state.paused || state.blackout;
-    $('#output-label').textContent = state.blackout ? 'BLACKOUT' : state.paused ? 'MOTION PAUSED' : 'LIVE OUTPUT';
+    $('#output-label').textContent = state.blackout ? 'BLACKOUT' : state.paused ? 'MOTION PAUSED' : song.interlude ? 'AMBIENT OUTPUT' : 'LIVE OUTPUT';
   }
   store.subscribe(render); render(store.get());
 
@@ -267,7 +278,7 @@ if (isStage) {
   function beatTick() {
     const state = store.get(); const beat = ((Math.floor((Date.now() - state.epoch) / (60000 / state.bpm)) % 4) + 4) % 4;
     const elapsed = ((Date.now() - state.epoch) % (60000 / state.bpm)) / (60000 / state.bpm);
-    $$('.beat-dots i').forEach((el, i) => el.classList.toggle('on', i === beat && elapsed < 0.55));
+    $$('.beat-dots i').forEach((el, i) => el.classList.toggle('on', !songs[state.song].interlude && i === beat && elapsed < 0.55));
     requestAnimationFrame(beatTick);
   }
   beatTick();
@@ -282,6 +293,7 @@ document.addEventListener('keydown', (event) => {
   if (event.code === 'Space') { event.preventDefault(); tap(); }
   else if (event.code === 'ArrowRight') { event.preventDefault(); selectSong(store.get().song + 1); }
   else if (event.code === 'ArrowLeft') { event.preventDefault(); selectSong(store.get().song - 1); }
+  else if (event.code === 'KeyA') selectSong(songs.findIndex(song => song.interlude));
   else if (event.code === 'KeyB') toggle('blackout');
   else if (event.code === 'KeyS') toggle('spotlight');
   else if (event.code === 'KeyP') toggle('paused');

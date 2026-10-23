@@ -1,6 +1,6 @@
 # Donkey Face — Live visual desk
 
-A browser-based concert visuals app for Cognite’s house band at DevCon 2026. The stage window shows the visuals; the control desk runs on your own screen. Ten scenes follow the setlist, with tap tempo, gradual transitions, a sax spotlight, and a moving Cognite mark.
+A browser-based concert visuals app for Cognite’s house band at DevCon 2026. The stage window shows the visuals; the control desk runs on your own screen. Ten song scenes and a mellow **Pause time** scene follow the show, with tap tempo, gradual transitions, a sax spotlight, and a moving Cognite symbol above fixed lettering.
 
 ## Run the portable app
 
@@ -12,7 +12,11 @@ A browser-based concert visuals app for Cognite’s house band at DevCon 2026. T
 
 Keep the desk open while the stage window is running. The stage contains no controls once the fullscreen hint fades. It will keep animating if the control desk temporarily loses focus. Blackout is immediate and leaves the internal beat running.
 
-The release embeds the visual code, fonts, DevCon artwork, and Cognite SVG. All visuals are generated locally with Canvas 2D. Brightness and intensity are adjustable; there is no rapid full-screen strobe. “Pause motion” freezes the scene while the metronome continues.
+The release embeds the visual code, fonts, DevCon artwork, and Cognite SVG. All visuals are generated locally with Canvas 2D. Brightness, beat intensity, and motion aggressiveness are adjustable; there is no rapid full-screen strobe. “Pause motion” freezes the scene while the metronome continues.
+
+**Motion aggressiveness** controls the amplitude and speed of the scene, beat pulses, and Cognite symbol. At 0% the scene stays still; 50% is the standard look; higher values add wider sweeps, stronger waves, and more active movement. Adjustments preserve the animation’s current time, and the slider is available in compact mode too. Beat intensity independently controls how strongly the visuals respond to each beat.
+
+Select **Pause time** at the end of the setlist, or press **A**, for quiet moments between sets or conversations. It uses restrained, slowly drifting ribbons with DevCon and Cognite branding, suppresses Donkey Face captions and song titles, and ignores tap tempo and sax spotlight. Its motion remains mellow even with a high motion setting. The Cognite symbol gently waves, while “Cognite” and “AI for Industry” remain stationary in every scene. Use the song buttons, arrows, or number keys to return to the concert.
 
 ## Artwork and saved shows
 
@@ -47,6 +51,7 @@ The server listens on the local machine by default and exposes only the chosen H
 | Space | Tap the beat |
 | Left / Right | Previous / next song |
 | 1–9, 0 | Jump to songs 1–10 |
+| A | Pause time / mellow ambient scene |
 | B | Blackout / restore stage |
 | S | Sax spotlight |
 | P | Pause / resume motion |
@@ -89,5 +94,6 @@ The cloud’s managed Chromium policy blocks `file://` navigation. The direct lo
 | Teenage Dirtbag — Wheatus | After-school static / constellations |
 | Run Away — Sunstroke Project & Olia Tira | Sax machine / laser fans |
 | Shut Up and Dance — WALK THE MOON | One last dance / color starburst |
+| Pause time — Between sets & conversations | Quiet hours / slow ambient ribbons, no band captions |
 
 The locally bundled Space Grotesk font uses the SIL Open Font License, included in `public/fonts/SpaceGrotesk-LICENSE.txt` and in the portable HTML.

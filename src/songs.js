@@ -9,6 +9,7 @@ export const songs = [
   { title: 'Teenage Dirtbag', artist: 'Wheatus', scene: 'After-school static', mode: 'stars', bpm: 95, colors: ['#9fbcd9', '#bcaee8', '#e1dce9'], tag: 'THE CROWD TAKES OVER', note: 'A dreamy constellation with a little teenage restlessness.', mood: 'Dreamy · nostalgic', icon: 'stars' },
   { title: 'Run Away', artist: 'Sunstroke Project & Olia Tira', scene: 'Sax machine', mode: 'lasers', bpm: 130, colors: ['#92d4bd', '#b7a8f0', '#f1c671'], tag: 'THE EPIC SAX MOMENT', note: 'A full-room laser fan. Bring the sax forward with spotlight.', mood: 'Eurodance · kinetic', sax: true, icon: 'lasers' },
   { title: 'Shut Up and Dance', artist: 'WALK THE MOON', scene: 'One last dance', mode: 'burst', bpm: 128, colors: ['#ec8fba', '#a9c8ef', '#f4cf82'], tag: 'THE GRAND FINALE', note: 'A color-soaked starburst for one last all-in sing-along.', mood: 'Joyful · explosive', icon: 'burst' },
+  { title: 'Pause time', artist: 'Between sets & conversations', scene: 'Quiet hours', mode: 'ambient', bpm: 60, colors: ['#b78c94', '#b6a5c2', '#d0b2a4'], tag: 'TAKE A BREATHER', note: 'Soft drifting ribbons. No beat, no band titles — just a little atmosphere.', mood: 'Mellow · unhurried', interlude: true, icon: 'waves' },
 ];
 
 export const palettes = [

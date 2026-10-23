@@ -127,9 +127,10 @@ test('each song renders a different scene; tap tempo, pause, and manual tempo wo
 test('scene library, artwork, and exported show work on a fresh machine', async ({ page, browser }) => {
   await openShow(page);
   await page.getByRole('button', { name: 'Scene library' }).click();
-  await expect(page.locator('.scene-card')).toHaveCount(10);
+  await expect(page.locator('.scene-card')).toHaveCount(11);
   await page.locator('[data-scene="3"]').click();
   await expect(page.locator('#current-title')).toHaveText('Sweet Dreams');
+  await page.locator('#motion').fill('75');
   await page.getByRole('button', { name: 'Show settings' }).click();
   const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
   await page.locator('#art-upload').setInputFiles({ name: 'custom-logo.png', mimeType: 'image/png', buffer: image });
@@ -149,9 +150,87 @@ test('scene library, artwork, and exported show work on a fresh machine', async 
     const errors = []; other.on('pageerror', e => errors.push(e.message));
     await other.goto(exportUrl);
     await expect(other.locator('#current-title')).toHaveText('Sweet Dreams');
+    await expect(other.locator('#motion')).toHaveValue('75');
     expect(await other.evaluate(() => localStorage.getItem('donkeyface.artwork.v1'))).toContain('data:image/png;base64,');
     expect(errors).toEqual([]);
   } finally { await fresh.close(); exportServer.kill(); }
+});
+
+async function traceStageDrawing(context) {
+  await context.addInitScript(() => {
+    window.stageBrandDraws = []; window.stageCaptions = [];
+    const originalImage = CanvasRenderingContext2D.prototype.drawImage;
+    CanvasRenderingContext2D.prototype.drawImage = function(image, ...args) {
+      if (this.canvas.id === 'stage-canvas' && image instanceof HTMLImageElement && image.src.startsWith('data:image/svg+xml') && args.length === 8) {
+        window.stageBrandDraws.push({ sx: args[0], sy: args[1], sh: args[3], y: args[5], naturalHeight: image.naturalHeight });
+        if (window.stageBrandDraws.length > 2500) window.stageBrandDraws.splice(0, 500);
+      }
+      return originalImage.call(this, image, ...args);
+    };
+    const originalText = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function(text, ...args) {
+      if (this.canvas.id === 'stage-canvas') {
+        window.stageCaptions.push(text);
+        if (window.stageCaptions.length > 500) window.stageCaptions.shift();
+      }
+      return originalText.call(this, text, ...args);
+    };
+  });
+}
+
+test('only the Cognite graphical symbol moves; its lettering stays fixed', async ({ page, context }) => {
+  await traceStageDrawing(context);
+  await openShow(page);
+  const [stage] = await Promise.all([page.waitForEvent('popup'), page.locator('#open-stage').click()]);
+  await expect.poll(() => stage.evaluate(() => window.stageBrandDraws.filter(d => d.sy > 0).length)).toBeGreaterThan(4);
+  const draws = await stage.evaluate(() => window.stageBrandDraws);
+  const text = draws.filter(d => d.sy > 0);
+  const symbol = draws.filter(d => d.sy === 0 && d.sx === 0);
+  expect(new Set(text.map(d => d.y)).size).toBe(1);
+  expect(new Set(symbol.map(d => d.y)).size).toBeGreaterThan(1);
+  expect(symbol.every(d => d.sh <= d.naturalHeight * 52 / 84 + 0.001)).toBe(true);
+  expect(text.every(d => d.sy >= d.naturalHeight * 52 / 84 - 0.001)).toBe(true);
+});
+
+test('motion spans still to active, and Pause time is an ambient scene without band branding', async ({ page, context }) => {
+  await traceStageDrawing(context);
+  await openShow(page);
+  const [stage] = await Promise.all([page.waitForEvent('popup'), page.locator('#open-stage').click()]);
+  await page.locator('#motion').fill('0');
+  await expect.poll(async () => (await state(stage))?.motion).toBe(0);
+  await stage.waitForTimeout(600);
+  const still = await stage.locator('canvas').evaluate(c => c.toDataURL());
+  await stage.waitForTimeout(400);
+  expect(await stage.locator('canvas').evaluate(c => c.toDataURL())).toBe(still);
+  await page.locator('#motion').fill('100');
+  await expect.poll(async () => (await state(stage))?.motion).toBe(1);
+  const active = await stage.locator('canvas').evaluate(c => c.toDataURL());
+  await stage.waitForTimeout(300);
+  expect(await stage.locator('canvas').evaluate(c => c.toDataURL())).not.toBe(active);
+  await page.locator('#titles-toggle').check();
+  await page.getByRole('listitem', { name: 'Play Pause time', exact: true }).click();
+  await expect(page.locator('#current-title')).toHaveText('Pause time');
+  await expect(stage).toHaveTitle('DevCon 2026 — Pause time');
+  await expect(page.locator('#tap-pad')).toBeDisabled();
+  await expect(page.locator('#spotlight')).toBeDisabled();
+  await expect(page.locator('#titles-toggle')).toBeDisabled();
+  await stage.waitForTimeout(1300);
+  await stage.evaluate(() => { window.stageCaptions = []; });
+  await stage.waitForTimeout(250);
+  const captions = await stage.evaluate(() => window.stageCaptions);
+  expect(captions.length).toBeGreaterThan(0);
+  expect(captions.some(text => /donkey face/i.test(text))).toBe(false);
+  expect(await stage.locator('#stage-output-name').textContent()).not.toMatch(/donkey face/i);
+  const ambient = await stage.locator('canvas').evaluate(c => c.toDataURL());
+  await stage.waitForTimeout(300);
+  expect(await stage.locator('canvas').evaluate(c => c.toDataURL())).not.toBe(ambient);
+  await stage.keyboard.press('Digit1');
+  await expect(page.locator('#current-title')).toHaveText('Seven Nation Army');
+  await expect(page.locator('#tap-pad')).toBeEnabled();
+  await stage.keyboard.press('a');
+  await expect(page.locator('#current-title')).toHaveText('Pause time');
+  await page.locator('#compact-desk').click();
+  await expect(page.locator('#motion')).toBeVisible();
 });
 
 test('mobile controls fit the screen and keyboard shortcuts do not steal input focus', async ({ page }) => {
