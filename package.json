@@ -1,0 +1,19 @@
+{
+  "name": "donkeyface-vibes",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "package": "vite build && node scripts/package.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/tempo.test.js",
+    "test:browser": "playwright test"
+  },
+  "engines": { "node": ">=22.12.0" },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "vite": "7.3.1"
+  }
+}
