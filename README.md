@@ -54,6 +54,20 @@ node scripts/serve.mjs --file /path/to/Donkey-Face-Show.html --port 8080
 
 The server listens on the local machine by default and exposes only the chosen HTML file. Press Ctrl+C to stop it. You can copy `scripts/serve.mjs` alongside the HTML and use `--file` to point at it; development dependencies are not needed.
 
+## GitHub Pages
+
+The repository includes a **Deploy GitHub Pages** workflow in `.github/workflows/pages.yml`. It installs the locked dependencies, runs the unit tests, builds a fresh portable app, and deploys it as `index.html` through GitHub's official Pages actions. Pushes to `main` trigger deployment, and the workflow also supports manual runs.
+
+One-time repository setup:
+
+1. Open **Settings → Pages → Build and deployment**.
+2. Set **Source** to **GitHub Actions**.
+3. Open **Actions → Deploy GitHub Pages** and run it on `main` if the latest push did not deploy successfully before Pages was enabled.
+
+The default site address is **https://amorken.github.io/donkeyface-vibes/**. The successful deployment's `github-pages` environment provides the active site link. Pages availability depends on the repository's GitHub plan and settings. The workflow uses the built-in `GITHUB_TOKEN`; no additional secret is required for deployments after Pages is enabled.
+
+`npm run build:pages` creates `dist-pages/index.html` and `.nojekyll`. The homepage embeds its code, artwork, and fonts, and the stage window uses the same site path with `?stage=1`. The portable download remains at `release/Donkey-Face.html`.
+
 ## Keyboard controls
 
 | Key | Action |
@@ -83,6 +97,7 @@ npm run dev
 ```sh
 npm test                 # Tempo, motion, agenda timing, and persisted-state validation
 npm run build            # Standard static build in dist/
+npm run build:pages      # GitHub Pages site in dist-pages/
 npm run package          # Rebuild release/Donkey-Face.html; commit it with source changes
 npm run test:browser     # Starts the Node server and tests the actual release over HTTP
 ```
